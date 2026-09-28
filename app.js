@@ -1,19 +1,20 @@
-﻿/**
- * TokenDashboard - Application Logic
- * Feature 1 & Feature 2: Sorting, filters, and native SVG data visualizations.
+/**
+ * Dashboard de Modelos de IA
+ * Feature 1, 2 & 3: Carga de datos, ordenación, filtros, gráficas globales y vista de detalle extendida.
  */
 
-// Global Application State
+// Estado global de la aplicación
 const state = {
-  rawModels: [],
-  filteredModels: [],
+  rawModels: [], // Datos originales cargados
+  filteredModels: [], // Modelos tras filtros y ordenación
+  selectedModel: null, // Modelo actualmente abierto en la vista de detalle
   filters: {
     search: '',
     inputModality: 'ALL',
     outputModality: 'ALL'
   },
   sort: {
-    column: 'name',
+    column: null,
     direction: 'asc'
   },
   charts: {
@@ -23,7 +24,7 @@ const state = {
   error: null
 };
 
-// Formatter utilities
+// Formateadores auxiliares
 const formatters = {
   formatTokensCompact(num) {
     if (num >= 1_000_000) {
@@ -43,24 +44,32 @@ const formatters = {
     return '$' + price.toFixed(8);
   },
 
+  formatPricePerThousand(price) {
+    return '$' + (price * 1_000).toFixed(5);
+  },
+
   formatPricePerMillion(price) {
     const perMillion = price * 1_000_000;
     return '$' + perMillion.toFixed(2);
+  },
+
+  formatCurrency(val) {
+    return '$' + val.toFixed(2);
   }
 };
 
-// Data loading service
+// Carga inicial de datos vía fetch
 async function loadData() {
   try {
     const response = await fetch('mock-data.json');
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
     }
     const data = await response.json();
     state.rawModels = data;
     state.isLoading = false;
 
-    populateModalityFilterOptions();
+    populateModalityOptions();
     applyFiltersAndSort();
   } catch (err) {
     console.error('Error al cargar mock-data.json:', err);
@@ -70,81 +79,79 @@ async function loadData() {
   }
 }
 
-// Populate modality filter dropdowns with unique options from data
-function populateModalityFilterOptions() {
+// Poblar selects de modalidades dinámicamente
+function populateModalityOptions() {
   const inputSelect = document.getElementById('filter-input-modality');
   const outputSelect = document.getElementById('filter-output-modality');
-
+  
   if (!inputSelect || !outputSelect) return;
 
   const inputModalities = Array.from(new Set(state.rawModels.map(m => m.inputModality))).sort();
   const outputModalities = Array.from(new Set(state.rawModels.map(m => m.outputModality))).sort();
 
   inputModalities.forEach(mod => {
-    const option = document.createElement('option');
-    option.value = mod;
-    option.textContent = mod;
-    inputSelect.appendChild(option);
+    const opt = document.createElement('option');
+    opt.value = mod;
+    opt.textContent = mod;
+    inputSelect.appendChild(opt);
   });
 
   outputModalities.forEach(mod => {
-    const option = document.createElement('option');
-    option.value = mod;
-    option.textContent = mod;
-    outputSelect.appendChild(option);
+    const opt = document.createElement('option');
+    opt.value = mod;
+    opt.textContent = mod;
+    outputSelect.appendChild(opt);
   });
 }
 
-// Filter and Sort Engine
+// Aplicar filtros y ordenación
 function applyFiltersAndSort() {
   let result = [...state.rawModels];
 
-  // 1. Text Search Filter (name)
+  // 1. Filtro por nombre
   const query = state.filters.search.trim().toLowerCase();
   if (query) {
     result = result.filter(m => m.name.toLowerCase().includes(query));
   }
 
-  // 2. Input Modality Filter
+  // 2. Filtro por modalidad de entrada
   if (state.filters.inputModality !== 'ALL') {
     result = result.filter(m => m.inputModality === state.filters.inputModality);
   }
 
-  // 3. Output Modality Filter
+  // 3. Filtro por modalidad de salida
   if (state.filters.outputModality !== 'ALL') {
     result = result.filter(m => m.outputModality === state.filters.outputModality);
   }
 
-  // 4. Sorting
+  // 4. Ordenación si hay una columna activa
   if (state.sort.column) {
-    const { column, direction } = state.sort;
-    const modifier = direction === 'asc' ? 1 : -1;
+    const col = state.sort.column;
+    const dir = state.sort.direction === 'asc' ? 1 : -1;
 
     result.sort((a, b) => {
-      let valA = a[column];
-      let valB = b[column];
+      let valA = a[col];
+      let valB = b[col];
 
-      if (typeof valA === 'string') {
-        return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * modifier;
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return (valA - valB) * dir;
       }
 
-      if (typeof valA === 'number') {
-        return (valA - valB) * modifier;
-      }
-
-      return 0;
+      const strA = String(valA || '').toLowerCase();
+      const strB = String(valB || '').toLowerCase();
+      return strA.localeCompare(strB, 'es') * dir;
     });
   }
 
   state.filteredModels = result;
-  
+
   renderKPIs(result);
   renderCharts(result);
   renderTable();
   updateSortHeaderIndicators();
 }
 
-// Render global KPI summary cards
+// Renderizado de KPIs
 function renderKPIs(models) {
   const totalModelsEl = document.getElementById('kpi-total-models');
   const avgTtftEl = document.getElementById('kpi-avg-ttft');
@@ -175,9 +182,9 @@ function renderKPIs(models) {
   if (totalTokensEl) totalTokensEl.textContent = formatters.formatTokensCompact(totalWeeklyTokens);
 }
 
-// ==========================================================================
-// Feature 2: Native SVG Charts
-// ==========================================================================
+// =========================================================
+// Feature 2: Visualizaciones y Gráficas Nativas SVG
+// =========================================================
 
 function renderCharts(models) {
   renderPriceChart(models);
@@ -185,7 +192,7 @@ function renderCharts(models) {
 }
 
 /**
- * Chart 1: Price Comparison (Input vs Output) per 1M tokens
+ * Gráfico 1: Comparativa de Precios por Token
  */
 function renderPriceChart(models) {
   const container = document.getElementById('price-chart-container');
@@ -196,9 +203,9 @@ function renderPriceChart(models) {
     return;
   }
 
-  const width = 640;
+  const width = 600;
   const height = 260;
-  const margin = { top: 20, right: 20, bottom: 65, left: 50 };
+  const margin = { top: 20, right: 20, bottom: 55, left: 45 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -219,19 +226,18 @@ function renderPriceChart(models) {
     const yPos = margin.top + innerHeight - (tickVal / yMax) * innerHeight;
     gridLinesSvg += `
       <line class="grid-line" x1="${margin.left}" y1="${yPos}" x2="${width - margin.right}" y2="${yPos}" />
-      <text class="axis-text" x="${margin.left - 8}" y="${yPos + 3}" text-anchor="end">$${tickVal.toFixed(2)}</text>
+      <text class="axis-text" x="${margin.left - 8}" y="${yPos + 3}" text-anchor="end">$${tickVal.toFixed(1)}</text>
     `;
   });
 
   const groupWidth = innerWidth / data.length;
-  const barPadding = 0.25;
+  const barPadding = 0.2;
   const usableWidth = groupWidth * (1 - barPadding);
   const barWidth = usableWidth / 2;
 
   let barsSvg = '';
   data.forEach((d, i) => {
     const groupX = margin.left + i * groupWidth + (groupWidth * barPadding) / 2;
-
     const inputBarHeight = Math.max((d.inputPrice1M / yMax) * innerHeight, 2);
     const outputBarHeight = Math.max((d.outputPrice1M / yMax) * innerHeight, 2);
 
@@ -244,7 +250,6 @@ function renderPriceChart(models) {
     const displayName = d.name.length > 10 ? d.name.substring(0, 9) + '…' : d.name;
 
     barsSvg += `
-      <!-- Input Price Bar -->
       <rect class="bar-rect" x="${inputX}" y="${inputY}" width="${barWidth - 2}" height="${inputBarHeight}"
         rx="3" fill="var(--chart-input-color)" opacity="0.88"
         data-model="${escapeHtml(d.name)}"
@@ -252,8 +257,6 @@ function renderPriceChart(models) {
         data-val-1m="$${d.inputPrice1M.toFixed(2)}"
         data-val-raw="${formatters.formatPricePerToken(d.inputPriceRaw)}"
       />
-
-      <!-- Output Price Bar -->
       <rect class="bar-rect" x="${outputX}" y="${outputY}" width="${barWidth - 2}" height="${outputBarHeight}"
         rx="3" fill="var(--chart-output-color)" opacity="0.88"
         data-model="${escapeHtml(d.name)}"
@@ -261,10 +264,8 @@ function renderPriceChart(models) {
         data-val-1m="$${d.outputPrice1M.toFixed(2)}"
         data-val-raw="${formatters.formatPricePerToken(d.outputPriceRaw)}"
       />
-
-      <!-- X-axis Model Name -->
       <text class="axis-text" x="${groupX + usableWidth / 2}" y="${height - margin.bottom + 16}" 
-        text-anchor="end" transform="rotate(-35, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
+        text-anchor="end" transform="rotate(-30, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
         ${escapeHtml(displayName)}
       </text>
     `;
@@ -282,7 +283,7 @@ function renderPriceChart(models) {
 }
 
 /**
- * Chart 2: Token Consumption (Weekly vs Daily)
+ * Gráfico 2: Consumo de Tokens
  */
 function renderConsumptionChart(models) {
   const container = document.getElementById('consumption-chart-container');
@@ -296,9 +297,9 @@ function renderConsumptionChart(models) {
   const period = state.charts.consumptionPeriod;
   const isWeek = period === 'week';
 
-  const width = 640;
+  const width = 600;
   const height = 260;
-  const margin = { top: 20, right: 20, bottom: 65, left: 52 };
+  const margin = { top: 20, right: 20, bottom: 55, left: 52 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
 
@@ -328,14 +329,13 @@ function renderConsumptionChart(models) {
   });
 
   const groupWidth = innerWidth / data.length;
-  const barPadding = 0.25;
+  const barPadding = 0.2;
   const usableWidth = groupWidth * (1 - barPadding);
   const barWidth = usableWidth / 2;
 
   let barsSvg = '';
   data.forEach((d, i) => {
     const groupX = margin.left + i * groupWidth + (groupWidth * barPadding) / 2;
-
     const inputBarHeight = Math.max((d.inputM / yMax) * innerHeight, 2);
     const outputBarHeight = Math.max((d.outputM / yMax) * innerHeight, 2);
 
@@ -348,7 +348,6 @@ function renderConsumptionChart(models) {
     const displayName = d.name.length > 10 ? d.name.substring(0, 9) + '…' : d.name;
 
     barsSvg += `
-      <!-- Input Tokens Bar -->
       <rect class="bar-rect" x="${inputX}" y="${inputY}" width="${barWidth - 2}" height="${inputBarHeight}"
         rx="3" fill="var(--chart-input-color)" opacity="0.88"
         data-model="${escapeHtml(d.name)}"
@@ -357,8 +356,6 @@ function renderConsumptionChart(models) {
         data-tokens-full="${formatters.formatTokensFull(d.inputTokens)}"
         data-period="${isWeek ? 'Semanal' : 'Diario'}"
       />
-
-      <!-- Output Tokens Bar -->
       <rect class="bar-rect" x="${outputX}" y="${outputY}" width="${barWidth - 2}" height="${outputBarHeight}"
         rx="3" fill="var(--chart-output-color)" opacity="0.88"
         data-model="${escapeHtml(d.name)}"
@@ -367,10 +364,8 @@ function renderConsumptionChart(models) {
         data-tokens-full="${formatters.formatTokensFull(d.outputTokens)}"
         data-period="${isWeek ? 'Semanal' : 'Diario'}"
       />
-
-      <!-- X-axis Label -->
       <text class="axis-text" x="${groupX + usableWidth / 2}" y="${height - margin.bottom + 16}" 
-        text-anchor="end" transform="rotate(-35, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
+        text-anchor="end" transform="rotate(-30, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
         ${escapeHtml(displayName)}
       </text>
     `;
@@ -388,7 +383,7 @@ function renderConsumptionChart(models) {
 }
 
 /**
- * Interactive Tooltips for SVG Bars
+ * Tooltips interactivos de gráficas globales
  */
 function attachChartTooltips(container, chartType) {
   const tooltip = document.getElementById('chart-tooltip');
@@ -408,11 +403,13 @@ function attachChartTooltips(container, chartType) {
         tooltip.innerHTML = `
           <div class="tooltip-title">${modelName}</div>
           <div class="tooltip-row">
-            <span class="tooltip-dot" style="background: ${dotColor};"></span>
-            <span>${type}:</span>
-            <span class="tooltip-value">${val1M} / 1M</span>
+            <span><span class="tooltip-dot" style="background:${dotColor}"></span>Token ${type}:</span>
+            <strong>${val1M} / 1M</strong>
           </div>
-          <div class="tooltip-sub">${valRaw} por token</div>
+          <div class="tooltip-row" style="color: var(--text-muted); font-size: 0.7rem;">
+            <span>Unitario:</span>
+            <span>${valRaw}</span>
+          </div>
         `;
       } else {
         const tokens = bar.getAttribute('data-tokens');
@@ -421,20 +418,24 @@ function attachChartTooltips(container, chartType) {
         tooltip.innerHTML = `
           <div class="tooltip-title">${modelName} (${period})</div>
           <div class="tooltip-row">
-            <span class="tooltip-dot" style="background: ${dotColor};"></span>
-            <span>${type}:</span>
-            <span class="tooltip-value">${tokens} tokens</span>
+            <span><span class="tooltip-dot" style="background:${dotColor}"></span>Tokens ${type}:</span>
+            <strong>${tokens}</strong>
           </div>
-          <div class="tooltip-sub">${tokensFull} tokens exactos</div>
+          <div class="tooltip-row" style="color: var(--text-muted); font-size: 0.7rem;">
+            <span>Total exacto:</span>
+            <span>${tokensFull}</span>
+          </div>
         `;
       }
 
       tooltip.style.display = 'block';
-      positionTooltip(e);
+      tooltip.style.left = e.clientX + 'px';
+      tooltip.style.top = e.clientY + 'px';
     });
 
     bar.addEventListener('mousemove', (e) => {
-      positionTooltip(e);
+      tooltip.style.left = e.clientX + 'px';
+      tooltip.style.top = e.clientY + 'px';
     });
 
     bar.addEventListener('mouseleave', () => {
@@ -443,25 +444,7 @@ function attachChartTooltips(container, chartType) {
   });
 }
 
-function positionTooltip(e) {
-  const tooltip = document.getElementById('chart-tooltip');
-  if (!tooltip) return;
-
-  const pad = 12;
-  let x = e.clientX;
-  let y = e.clientY - pad;
-
-  // Prevent overflowing window boundaries
-  const rect = tooltip.getBoundingClientRect();
-  if (x - rect.width / 2 < 10) x = rect.width / 2 + 10;
-  if (x + rect.width / 2 > window.innerWidth - 10) x = window.innerWidth - rect.width / 2 - 10;
-  if (y - rect.height < 10) y = e.clientY + pad + rect.height;
-
-  tooltip.style.left = `${x}px`;
-  tooltip.style.top = `${y}px`;
-}
-
-// Badges helper functions
+// Clases para badges
 function getTtftBadgeClass(ttft) {
   if (ttft <= 250) return 'ttft-fast';
   if (ttft <= 400) return 'ttft-medium';
@@ -473,7 +456,7 @@ function getModalityBadgeClass(modality) {
   return 'modality-text';
 }
 
-// Render models table
+// Renderizado de la tabla
 function renderTable() {
   const tbody = document.getElementById('table-body');
   const countEl = document.getElementById('models-count');
@@ -502,65 +485,76 @@ function renderTable() {
     return;
   }
 
-  tbody.innerHTML = models.map(model => `
-    <tr data-model-name="${escapeHtml(model.name)}">
-      <td>
-        <div class="cell-model-name">
-          <span>${escapeHtml(model.name)}</span>
-        </div>
-      </td>
-      <td>
-        <span class="modality-badge ${getModalityBadgeClass(model.inputModality)}">
-          ${escapeHtml(model.inputModality)}
-        </span>
-      </td>
-      <td>
-        <span class="modality-badge ${getModalityBadgeClass(model.outputModality)}">
-          ${escapeHtml(model.outputModality)}
-        </span>
-      </td>
-      <td class="text-right">
-        <span class="ttft-badge ${getTtftBadgeClass(model.ttft_ms)}">
-          ${model.ttft_ms} ms
-        </span>
-      </td>
-      <td class="text-right">
-        <span class="price-main">${formatters.formatPricePerMillion(model.inputPricePerToken)}</span>
-        <span class="cell-subtext">${formatters.formatPricePerToken(model.inputPricePerToken)}</span>
-      </td>
-      <td class="text-right">
-        <span class="price-main">${formatters.formatPricePerMillion(model.outputPricePerToken)}</span>
-        <span class="cell-subtext">${formatters.formatPricePerToken(model.outputPricePerToken)}</span>
-      </td>
-      <td class="text-right">
-        <div class="tokens-split">
-          <div class="tokens-row" title="Input: ${formatters.formatTokensFull(model.inputTokensDay)} tokens">
-            <span class="tokens-tag">In:</span>
-            <span class="num-val">${formatters.formatTokensCompact(model.inputTokensDay)}</span>
+  tbody.innerHTML = models.map(model => {
+    return `
+      <tr data-model-name="${escapeHtml(model.name)}" title="Clic para abrir vista extendida de ${escapeHtml(model.name)}">
+        <td>
+          <div class="cell-model-name">
+            <span>${escapeHtml(model.name)}</span>
           </div>
-          <div class="tokens-row" title="Output: ${formatters.formatTokensFull(model.outputTokensDay)} tokens">
-            <span class="tokens-tag">Out:</span>
-            <span class="num-val">${formatters.formatTokensCompact(model.outputTokensDay)}</span>
+        </td>
+        <td>
+          <span class="modality-badge ${getModalityBadgeClass(model.inputModality)}">
+            ${escapeHtml(model.inputModality)}
+          </span>
+        </td>
+        <td>
+          <span class="modality-badge ${getModalityBadgeClass(model.outputModality)}">
+            ${escapeHtml(model.outputModality)}
+          </span>
+        </td>
+        <td class="text-right">
+          <span class="ttft-badge ${getTtftBadgeClass(model.ttft_ms)}">
+            ${model.ttft_ms} ms
+          </span>
+        </td>
+        <td class="text-right">
+          <span class="price-main">${formatters.formatPricePerMillion(model.inputPricePerToken)}</span>
+          <span class="cell-subtext">${formatters.formatPricePerToken(model.inputPricePerToken)}</span>
+        </td>
+        <td class="text-right">
+          <span class="price-main">${formatters.formatPricePerMillion(model.outputPricePerToken)}</span>
+          <span class="cell-subtext">${formatters.formatPricePerToken(model.outputPricePerToken)}</span>
+        </td>
+        <td class="text-right">
+          <div class="tokens-split">
+            <div class="tokens-row" title="Input: ${formatters.formatTokensFull(model.inputTokensDay)} tokens">
+              <span class="tokens-tag in">In:</span>
+              <span class="num-val">${formatters.formatTokensCompact(model.inputTokensDay)}</span>
+            </div>
+            <div class="tokens-row" title="Output: ${formatters.formatTokensFull(model.outputTokensDay)} tokens">
+              <span class="tokens-tag out">Out:</span>
+              <span class="num-val">${formatters.formatTokensCompact(model.outputTokensDay)}</span>
+            </div>
           </div>
-        </div>
-      </td>
-      <td class="text-right">
-        <div class="tokens-split">
-          <div class="tokens-row" title="Input: ${formatters.formatTokensFull(model.inputTokensWeek)} tokens">
-            <span class="tokens-tag">In:</span>
-            <span class="num-val">${formatters.formatTokensCompact(model.inputTokensWeek)}</span>
+        </td>
+        <td class="text-right">
+          <div class="tokens-split">
+            <div class="tokens-row" title="Input: ${formatters.formatTokensFull(model.inputTokensWeek)} tokens">
+              <span class="tokens-tag in">In:</span>
+              <span class="num-val">${formatters.formatTokensCompact(model.inputTokensWeek)}</span>
+            </div>
+            <div class="tokens-row" title="Output: ${formatters.formatTokensFull(model.outputTokensWeek)} tokens">
+              <span class="tokens-tag out">Out:</span>
+              <span class="num-val">${formatters.formatTokensCompact(model.outputTokensWeek)}</span>
+            </div>
           </div>
-          <div class="tokens-row" title="Output: ${formatters.formatTokensFull(model.outputTokensWeek)} tokens">
-            <span class="tokens-tag">Out:</span>
-            <span class="num-val">${formatters.formatTokensCompact(model.outputTokensWeek)}</span>
-          </div>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Feature 3: Asignar evento de clic a cada fila
+  const rows = tbody.querySelectorAll('tr[data-model-name]');
+  rows.forEach(row => {
+    row.addEventListener('click', () => {
+      const modelName = row.getAttribute('data-model-name');
+      openModelDetail(modelName);
+    });
+  });
 }
 
-// Update visual sort indicators in headers
+// Indicadores de orden en encabezados
 function updateSortHeaderIndicators() {
   const headers = document.querySelectorAll('.models-table th.sortable');
   headers.forEach(th => {
@@ -582,7 +576,7 @@ function updateSortHeaderIndicators() {
   });
 }
 
-// Handle column header sort clicks
+// Clic de ordenación
 function handleSortClick(column) {
   if (state.sort.column === column) {
     state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
@@ -593,7 +587,7 @@ function handleSortClick(column) {
   applyFiltersAndSort();
 }
 
-// Reset all filters
+// Restablecer filtros
 function resetFilters() {
   state.filters.search = '';
   state.filters.inputModality = 'ALL';
@@ -612,9 +606,252 @@ function resetFilters() {
   applyFiltersAndSort();
 }
 
-// Attach event listeners
+// =========================================================
+// Feature 3: Vista de Detalle Extendido (Drawer Modal)
+// =========================================================
+
+function openModelDetail(modelName) {
+  const model = state.rawModels.find(m => m.name === modelName);
+  if (!model) return;
+
+  state.selectedModel = model;
+
+  const overlay = document.getElementById('detail-modal-overlay');
+  const titleEl = document.getElementById('modal-title');
+  const badgesEl = document.getElementById('modal-badges');
+  const contentEl = document.getElementById('drawer-content');
+
+  if (titleEl) titleEl.textContent = model.name;
+
+  if (badgesEl) {
+    badgesEl.innerHTML = `
+      <span class="modality-badge ${getModalityBadgeClass(model.inputModality)}">In: ${escapeHtml(model.inputModality)}</span>
+      <span class="modality-badge ${getModalityBadgeClass(model.outputModality)}">Out: ${escapeHtml(model.outputModality)}</span>
+      <span class="ttft-badge ${getTtftBadgeClass(model.ttft_ms)}">TTFT: ${model.ttft_ms} ms</span>
+    `;
+  }
+
+  // Cálculos financieros y ratios extendidos
+  const dailyCost = (model.inputTokensDay * model.inputPricePerToken) + (model.outputTokensDay * model.outputPricePerToken);
+  const weeklyCost = (model.inputTokensWeek * model.inputPricePerToken) + (model.outputTokensWeek * model.outputPricePerToken);
+  
+  const totalTokensDay = model.inputTokensDay + model.outputTokensDay;
+  const totalTokensWeek = model.inputTokensWeek + model.outputTokensWeek;
+  const inRatioWeek = ((model.inputTokensWeek / totalTokensWeek) * 100).toFixed(1);
+  const outRatioWeek = ((model.outputTokensWeek / totalTokensWeek) * 100).toFixed(1);
+
+  // Benchmarking de TTFT respecto al promedio de modelos
+  const avgCatalogTtft = Math.round(state.rawModels.reduce((acc, m) => acc + m.ttft_ms, 0) / state.rawModels.length);
+  const ttftDiff = model.ttft_ms - avgCatalogTtft;
+  const ttftDiffText = ttftDiff <= 0 
+    ? `${Math.abs(ttftDiff)} ms más rápido que la media` 
+    : `${ttftDiff} ms más lento que la media`;
+
+  if (contentEl) {
+    contentEl.innerHTML = `
+      <!-- Cost Breakdown Section -->
+      <div class="drawer-section">
+        <span class="drawer-section-title">Desglose Económico Detallado</span>
+        <div class="drawer-metric-grid">
+          <div class="drawer-metric-card">
+            <span class="drawer-metric-label">Token Entrada (1M)</span>
+            <span class="drawer-metric-val" style="color: var(--chart-input-color);">${formatters.formatPricePerMillion(model.inputPricePerToken)}</span>
+            <span class="drawer-metric-sub">1K: ${formatters.formatPricePerThousand(model.inputPricePerToken)} &bull; ${formatters.formatPricePerToken(model.inputPricePerToken)}/tok</span>
+          </div>
+          <div class="drawer-metric-card">
+            <span class="drawer-metric-label">Token Salida (1M)</span>
+            <span class="drawer-metric-val" style="color: var(--chart-output-color);">${formatters.formatPricePerMillion(model.outputPricePerToken)}</span>
+            <span class="drawer-metric-sub">1K: ${formatters.formatPricePerThousand(model.outputPricePerToken)} &bull; ${formatters.formatPricePerToken(model.outputPricePerToken)}/tok</span>
+          </div>
+          <div class="drawer-metric-card">
+            <span class="drawer-metric-label">Gasto Diario Estimado</span>
+            <span class="drawer-metric-val">${formatters.formatCurrency(dailyCost)}</span>
+            <span class="drawer-metric-sub">${formatters.formatTokensCompact(totalTokensDay)} tokens/día</span>
+          </div>
+          <div class="drawer-metric-card">
+            <span class="drawer-metric-label">Gasto Semanal Estimado</span>
+            <span class="drawer-metric-val">${formatters.formatCurrency(weeklyCost)}</span>
+            <span class="drawer-metric-sub">${formatters.formatTokensCompact(totalTokensWeek)} tokens/semana</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Individual Chart 1: Model Token Breakdown (SVG) -->
+      <div class="drawer-section">
+        <span class="drawer-section-title">Gráfica Específica: Consumo Diario vs Semanal</span>
+        <div class="drawer-chart-card">
+          <div class="drawer-chart-header">
+            <span>Volumen de Entrada vs Salida</span>
+            <div class="chart-legend" style="margin: 0;">
+              <div class="legend-item"><span class="legend-color legend-input"></span><span>In (${inRatioWeek}%)</span></div>
+              <div class="legend-item"><span class="legend-color legend-output"></span><span>Out (${outRatioWeek}%)</span></div>
+            </div>
+          </div>
+          <div class="drawer-chart-svg-wrap" id="model-consumption-chart">
+            ${renderIndividualModelConsumptionSvg(model)}
+          </div>
+        </div>
+      </div>
+
+      <!-- Individual Chart 2: TTFT Benchmark vs Media (SVG) -->
+      <div class="drawer-section">
+        <span class="drawer-section-title">Gráfica Específica: Benchmark de Latencia TTFT</span>
+        <div class="drawer-chart-card">
+          <div class="drawer-chart-header">
+            <span>Velocidad frente a la media del catálogo (${avgCatalogTtft} ms)</span>
+            <span style="font-size: 0.72rem; color: ${ttftDiff <= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">${ttftDiffText}</span>
+          </div>
+          <div class="drawer-chart-svg-wrap" style="height: 110px;" id="model-ttft-benchmark">
+            ${renderIndividualModelTtftSvg(model, avgCatalogTtft)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Renderiza gráfico SVG individual de consumo para el modelo seleccionado
+ */
+function renderIndividualModelConsumptionSvg(model) {
+  const width = 500;
+  const height = 180;
+  const margin = { top: 25, right: 25, bottom: 35, left: 55 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  const data = [
+    {
+      period: 'Diario',
+      inM: model.inputTokensDay / 1_000_000,
+      outM: model.outputTokensDay / 1_000_000,
+      inRaw: model.inputTokensDay,
+      outRaw: model.outputTokensDay
+    },
+    {
+      period: 'Semanal',
+      inM: model.inputTokensWeek / 1_000_000,
+      outM: model.outputTokensWeek / 1_000_000,
+      inRaw: model.inputTokensWeek,
+      outRaw: model.outputTokensWeek
+    }
+  ];
+
+  const maxVal = Math.max(...data.map(d => Math.max(d.inM, d.outM)), 1);
+  const yMax = Math.ceil(maxVal * 1.15);
+
+  const yTicks = [0, Math.round(yMax * 0.5), yMax];
+  let gridLines = '';
+  yTicks.forEach(tick => {
+    const yPos = margin.top + innerHeight - (tick / yMax) * innerHeight;
+    gridLines += `
+      <line class="grid-line" x1="${margin.left}" y1="${yPos}" x2="${width - margin.right}" y2="${yPos}" />
+      <text class="axis-text" x="${margin.left - 8}" y="${yPos + 3}" text-anchor="end">${tick}M</text>
+    `;
+  });
+
+  const groupWidth = innerWidth / data.length;
+  const barWidth = 40;
+
+  let bars = '';
+  data.forEach((d, i) => {
+    const groupCenter = margin.left + i * groupWidth + groupWidth / 2;
+    const inHeight = Math.max((d.inM / yMax) * innerHeight, 3);
+    const outHeight = Math.max((d.outM / yMax) * innerHeight, 3);
+
+    const inX = groupCenter - barWidth - 4;
+    const outX = groupCenter + 4;
+    const inY = margin.top + innerHeight - inHeight;
+    const outY = margin.top + innerHeight - outHeight;
+
+    bars += `
+      <!-- Entrada -->
+      <rect x="${inX}" y="${inY}" width="${barWidth}" height="${inHeight}" rx="4" fill="var(--chart-input-color)" />
+      <text class="axis-text" x="${inX + barWidth / 2}" y="${inY - 5}" text-anchor="middle" fill="var(--chart-input-color)">
+        ${formatters.formatTokensCompact(d.inRaw)}
+      </text>
+
+      <!-- Salida -->
+      <rect x="${outX}" y="${outY}" width="${barWidth}" height="${outHeight}" rx="4" fill="var(--chart-output-color)" />
+      <text class="axis-text" x="${outX + barWidth / 2}" y="${outY - 5}" text-anchor="middle" fill="var(--chart-output-color)">
+        ${formatters.formatTokensCompact(d.outRaw)}
+      </text>
+
+      <!-- Label Período -->
+      <text class="axis-text" x="${groupCenter}" y="${height - 10}" text-anchor="middle" style="font-weight: 600; fill: var(--text-secondary);">
+        Consumo ${d.period}
+      </text>
+    `;
+  });
+
+  return `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      ${gridLines}
+      <line class="axis-line" x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${width - margin.right}" y2="${margin.top + innerHeight}" />
+      ${bars}
+    </svg>
+  `;
+}
+
+/**
+ * Renderiza gráfico SVG individual de TTFT benchmark frente a la media
+ */
+function renderIndividualModelTtftSvg(model, avgTtft) {
+  const width = 500;
+  const height = 90;
+  const margin = { top: 15, right: 30, bottom: 25, left: 30 };
+  const innerWidth = width - margin.left - margin.right;
+
+  // Rango de escala entre 100ms y 1000ms
+  const minMs = 100;
+  const maxMs = 1000;
+  const scale = (ms) => margin.left + Math.max(0, Math.min(1, (ms - minMs) / (maxMs - minMs))) * innerWidth;
+
+  const modelX = scale(model.ttft_ms);
+  const avgX = scale(avgTtft);
+  const isFaster = model.ttft_ms <= avgTtft;
+  const barColor = isFaster ? 'var(--accent-emerald)' : 'var(--accent-rose)';
+
+  return `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      <!-- Fondo de la barra de rango -->
+      <rect x="${margin.left}" y="32" width="${innerWidth}" height="10" rx="5" fill="var(--bg-surface)" />
+      
+      <!-- Marcador de la media del catálogo -->
+      <line x1="${avgX}" y1="18" x2="${avgX}" y2="52" stroke="var(--text-muted)" stroke-width="2" stroke-dasharray="3 3" />
+      <text x="${avgX}" y="14" text-anchor="middle" class="axis-text" style="font-size: 9px; fill: var(--text-muted);">
+        Media: ${avgTtft} ms
+      </text>
+
+      <!-- Marcador del modelo actual -->
+      <circle cx="${modelX}" cy="37" r="8" fill="${barColor}" stroke="#ffffff" stroke-width="2" />
+      <text x="${modelX}" y="65" text-anchor="middle" class="axis-text" style="font-weight: 700; fill: ${barColor};">
+        ${model.name}: ${model.ttft_ms} ms
+      </text>
+
+      <!-- Extremos de la escala -->
+      <text x="${margin.left}" y="52" class="axis-text" style="font-size: 8px;">${minMs}ms (Rápido)</text>
+      <text x="${width - margin.right}" y="52" text-anchor="end" class="axis-text" style="font-size: 8px;">${maxMs}ms (Lento)</text>
+    </svg>
+  `;
+}
+
+// Cerrar panel de detalle
+function closeModelDetail() {
+  const overlay = document.getElementById('detail-modal-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+  state.selectedModel = null;
+}
+
+// Configuración de escuchadores de eventos
 function setupEventListeners() {
-  // Sortable headers
+  // 1. Cabeceras ordenables
   const headers = document.querySelectorAll('.models-table th.sortable');
   headers.forEach(th => {
     const column = th.getAttribute('data-column');
@@ -627,7 +864,7 @@ function setupEventListeners() {
     });
   });
 
-  // Search input
+  // 2. Buscador por texto
   const searchInput = document.getElementById('filter-search');
   const clearBtn = document.getElementById('search-clear-btn');
   if (searchInput) {
@@ -652,7 +889,7 @@ function setupEventListeners() {
     });
   }
 
-  // Modality select filters
+  // 3. Selectores de modalidad
   const inputSelect = document.getElementById('filter-input-modality');
   if (inputSelect) {
     inputSelect.addEventListener('change', (e) => {
@@ -669,13 +906,13 @@ function setupEventListeners() {
     });
   }
 
-  // Reset button
+  // 4. Botón de reset de filtros
   const resetBtn = document.getElementById('reset-filters-btn');
   if (resetBtn) {
     resetBtn.addEventListener('click', resetFilters);
   }
 
-  // Period Toggle Buttons for Consumption Chart
+  // 5. Toggle de período de consumo (Feature 2)
   const btnWeek = document.getElementById('btn-period-week');
   const btnDay = document.getElementById('btn-period-day');
   if (btnWeek && btnDay) {
@@ -698,29 +935,48 @@ function setupEventListeners() {
     });
   }
 
-  // Resize handler
+  // 6. Cierre del Drawer / Modal (Feature 3)
+  const closeDrawerBtn = document.getElementById('close-drawer-btn');
+  if (closeDrawerBtn) {
+    closeDrawerBtn.addEventListener('click', closeModelDetail);
+  }
+
+  const overlay = document.getElementById('detail-modal-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        closeModelDetail();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.selectedModel) {
+      closeModelDetail();
+    }
+  });
+
+  // 7. Redimensionamiento para SVG
   window.addEventListener('resize', () => {
     renderCharts(state.filteredModels);
   });
 }
 
-// Render error notification
+// Renderizado de error
 function renderError() {
   const tbody = document.getElementById('table-body');
   if (tbody) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="empty-message" style="color: var(--accent-rose); line-height: 1.8;">
-          <strong>Error al cargar los datos (${escapeHtml(state.error || 'Error desconocido')})</strong><br>
-          Si abres el archivo directamente en el navegador (<code>file://</code>), la política CORS puede bloquear la lectura de <code>mock-data.json</code>.<br>
-          <em>Solución:</em> Sirve el proyecto mediante un servidor local (ej: <code>npx serve</code> o <code>python3 -m http.server</code>).
+        <td colspan="8" class="empty-message" style="color: var(--accent-rose);">
+          Error al cargar los datos (${escapeHtml(state.error || 'Error desconocido')}). Asegúrate de acceder mediante un servidor local (HTTP).
         </td>
       </tr>
     `;
   }
 }
 
-// XSS Sanitizer
+// Escapar cadenas para seguridad XSS
 function escapeHtml(str) {
   if (typeof str !== 'string') return str;
   return str
@@ -731,7 +987,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// Initialization on DOM ready
+// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   loadData();
