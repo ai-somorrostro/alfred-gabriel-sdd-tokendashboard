@@ -20,6 +20,12 @@
   --accent-emerald: #10b981;
   --accent-amber: #f59e0b;
   --accent-rose: #f43f5e;
+
+  /* Chart Color Tokens */
+  --chart-input-color: #6366f1;
+  --chart-output-color: #06b6d4;
+  --chart-grid-color: rgba(255, 255, 255, 0.07);
+  --chart-axis-color: rgba(255, 255, 255, 0.18);
   
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
@@ -214,7 +220,210 @@ body {
 }
 
 /* ==========================================================================
-   Table Section & Filters Toolbar (Feature 1)
+   Visualizations Section (Feature 2: Native SVG Charts)
+   ========================================================================== */
+.visualizations-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.chart-title-box h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chart-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.chart-controls-box {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.chart-toggle-group {
+  display: inline-flex;
+  background: var(--bg-surface-elevated);
+  padding: 0.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle.active {
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.btn-toggle:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-color.legend-input {
+  background: var(--chart-input-color);
+}
+
+.legend-color.legend-output {
+  background: var(--chart-output-color);
+}
+
+.chart-canvas-wrapper {
+  width: 100%;
+  height: 260px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.grid-line {
+  stroke: var(--chart-grid-color);
+  stroke-dasharray: 3, 3;
+  stroke-width: 1;
+}
+
+.axis-line {
+  stroke: var(--chart-axis-color);
+  stroke-width: 1;
+}
+
+.axis-text {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.bar-rect {
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+
+.bar-rect:hover {
+  opacity: 1 !important;
+  filter: brightness(1.25);
+}
+
+/* ==========================================================================
+   Floating Tooltip for Charts
+   ========================================================================== */
+.chart-tooltip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.85rem;
+  box-shadow: var(--shadow-lg);
+  font-size: 0.8rem;
+  backdrop-filter: blur(8px);
+  transform: translate(-50%, -120%);
+  transition: opacity 0.1s ease;
+}
+
+.tooltip-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.2rem;
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+}
+
+.tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.tooltip-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tooltip-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Table Section & Filters Toolbar
    ========================================================================== */
 .table-section {
   display: flex;
@@ -410,7 +619,6 @@ body {
   user-select: none;
 }
 
-/* Sortable Headers */
 .models-table th.sortable {
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -471,9 +679,7 @@ body {
   text-align: right;
 }
 
-/* ==========================================================================
-   Table Cell Components
-   ========================================================================== */
+/* Cell Specific Styles */
 .cell-model-name {
   font-weight: 600;
   color: var(--text-primary);
@@ -585,9 +791,7 @@ body {
   gap: 0.75rem;
 }
 
-/* ==========================================================================
-   Footer
-   ========================================================================== */
+/* Footer */
 .app-footer {
   border-top: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -603,9 +807,13 @@ body {
   color: var(--accent-cyan);
 }
 
-/* ==========================================================================
-   Responsive Adaptations
-   ========================================================================== */
+/* Responsiveness */
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .filters-toolbar {
     flex-direction: column;

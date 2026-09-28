@@ -1,6 +1,6 @@
 ﻿/**
  * TokenDashboard - Application Logic
- * Feature 1: Sorting across all columns and reactive combined filters by name and modality.
+ * Feature 1 & Feature 2: Sorting, filters, and native SVG data visualizations.
  */
 
 // Global Application State
@@ -15,6 +15,9 @@ const state = {
   sort: {
     column: 'name',
     direction: 'asc'
+  },
+  charts: {
+    consumptionPeriod: 'week' // 'week' | 'day'
   },
   isLoading: true,
   error: null
@@ -58,7 +61,6 @@ async function loadData() {
     state.isLoading = false;
 
     populateModalityFilterOptions();
-    renderKPIs();
     applyFiltersAndSort();
   } catch (err) {
     console.error('Error al cargar mock-data.json:', err);
@@ -114,51 +116,349 @@ function applyFiltersAndSort() {
   }
 
   // 4. Sorting
-  const { column, direction } = state.sort;
-  const modifier = direction === 'asc' ? 1 : -1;
+  if (state.sort.column) {
+    const { column, direction } = state.sort;
+    const modifier = direction === 'asc' ? 1 : -1;
 
-  result.sort((a, b) => {
-    let valA = a[column];
-    let valB = b[column];
+    result.sort((a, b) => {
+      let valA = a[column];
+      let valB = b[column];
 
-    if (typeof valA === 'string') {
-      return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * modifier;
-    }
+      if (typeof valA === 'string') {
+        return valA.localeCompare(valB, 'es', { sensitivity: 'base' }) * modifier;
+      }
 
-    if (typeof valA === 'number') {
-      return (valA - valB) * modifier;
-    }
+      if (typeof valA === 'number') {
+        return (valA - valB) * modifier;
+      }
 
-    return 0;
-  });
+      return 0;
+    });
+  }
 
   state.filteredModels = result;
-  updateSortHeaderIndicators();
+  
+  renderKPIs(result);
+  renderCharts(result);
   renderTable();
+  updateSortHeaderIndicators();
 }
 
 // Render global KPI summary cards
-function renderKPIs() {
-  const models = state.rawModels;
-  if (!models || models.length === 0) return;
-
+function renderKPIs(models) {
   const totalModelsEl = document.getElementById('kpi-total-models');
   const avgTtftEl = document.getElementById('kpi-avg-ttft');
   const avgPriceEl = document.getElementById('kpi-avg-price');
   const totalTokensEl = document.getElementById('kpi-total-tokens');
 
-  const totalModels = models.length;
-  const avgTtft = Math.round(models.reduce((acc, m) => acc + m.ttft_ms, 0) / totalModels);
-  const avgInputPrice = models.reduce((acc, m) => acc + m.inputPricePerToken, 0) / totalModels;
-  const avgOutputPrice = models.reduce((acc, m) => acc + m.outputPricePerToken, 0) / totalModels;
+  if (!models || models.length === 0) {
+    if (totalModelsEl) totalModelsEl.textContent = '0';
+    if (avgTtftEl) avgTtftEl.textContent = '-';
+    if (avgPriceEl) avgPriceEl.textContent = '-';
+    if (totalTokensEl) totalTokensEl.textContent = '-';
+    return;
+  }
+
+  const count = models.length;
+  const avgTtft = Math.round(models.reduce((acc, m) => acc + m.ttft_ms, 0) / count);
+  const avgInputPrice = models.reduce((acc, m) => acc + m.inputPricePerToken, 0) / count;
+  const avgOutputPrice = models.reduce((acc, m) => acc + m.outputPricePerToken, 0) / count;
   const totalWeeklyTokens = models.reduce((acc, m) => acc + (m.inputTokensWeek + m.outputTokensWeek), 0);
 
-  if (totalModelsEl) totalModelsEl.textContent = totalModels;
+  if (totalModelsEl) {
+    totalModelsEl.textContent = count === state.rawModels.length ? `${count}` : `${count} / ${state.rawModels.length}`;
+  }
   if (avgTtftEl) avgTtftEl.textContent = `${avgTtft} ms`;
   if (avgPriceEl) {
     avgPriceEl.textContent = `${formatters.formatPricePerMillion(avgInputPrice)} / ${formatters.formatPricePerMillion(avgOutputPrice)}`;
   }
   if (totalTokensEl) totalTokensEl.textContent = formatters.formatTokensCompact(totalWeeklyTokens);
+}
+
+// ==========================================================================
+// Feature 2: Native SVG Charts
+// ==========================================================================
+
+function renderCharts(models) {
+  renderPriceChart(models);
+  renderConsumptionChart(models);
+}
+
+/**
+ * Chart 1: Price Comparison (Input vs Output) per 1M tokens
+ */
+function renderPriceChart(models) {
+  const container = document.getElementById('price-chart-container');
+  if (!container) return;
+
+  if (!models || models.length === 0) {
+    container.innerHTML = `<div class="empty-message" style="padding: 2rem;">Sin datos para los filtros seleccionados</div>`;
+    return;
+  }
+
+  const width = 640;
+  const height = 260;
+  const margin = { top: 20, right: 20, bottom: 65, left: 50 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  const data = models.map(m => ({
+    name: m.name,
+    inputPrice1M: m.inputPricePerToken * 1_000_000,
+    outputPrice1M: m.outputPricePerToken * 1_000_000,
+    inputPriceRaw: m.inputPricePerToken,
+    outputPriceRaw: m.outputPricePerToken
+  }));
+
+  const maxPrice = Math.max(...data.map(d => Math.max(d.inputPrice1M, d.outputPrice1M)), 0.5);
+  const yMax = Math.ceil(maxPrice * 1.15 * 10) / 10;
+
+  const yTicks = [0, yMax * 0.33, yMax * 0.66, yMax];
+  let gridLinesSvg = '';
+  yTicks.forEach(tickVal => {
+    const yPos = margin.top + innerHeight - (tickVal / yMax) * innerHeight;
+    gridLinesSvg += `
+      <line class="grid-line" x1="${margin.left}" y1="${yPos}" x2="${width - margin.right}" y2="${yPos}" />
+      <text class="axis-text" x="${margin.left - 8}" y="${yPos + 3}" text-anchor="end">$${tickVal.toFixed(2)}</text>
+    `;
+  });
+
+  const groupWidth = innerWidth / data.length;
+  const barPadding = 0.25;
+  const usableWidth = groupWidth * (1 - barPadding);
+  const barWidth = usableWidth / 2;
+
+  let barsSvg = '';
+  data.forEach((d, i) => {
+    const groupX = margin.left + i * groupWidth + (groupWidth * barPadding) / 2;
+
+    const inputBarHeight = Math.max((d.inputPrice1M / yMax) * innerHeight, 2);
+    const outputBarHeight = Math.max((d.outputPrice1M / yMax) * innerHeight, 2);
+
+    const inputY = margin.top + innerHeight - inputBarHeight;
+    const outputY = margin.top + innerHeight - outputBarHeight;
+
+    const inputX = groupX;
+    const outputX = groupX + barWidth + 2;
+
+    const displayName = d.name.length > 10 ? d.name.substring(0, 9) + '…' : d.name;
+
+    barsSvg += `
+      <!-- Input Price Bar -->
+      <rect class="bar-rect" x="${inputX}" y="${inputY}" width="${barWidth - 2}" height="${inputBarHeight}"
+        rx="3" fill="var(--chart-input-color)" opacity="0.88"
+        data-model="${escapeHtml(d.name)}"
+        data-type="Entrada"
+        data-val-1m="$${d.inputPrice1M.toFixed(2)}"
+        data-val-raw="${formatters.formatPricePerToken(d.inputPriceRaw)}"
+      />
+
+      <!-- Output Price Bar -->
+      <rect class="bar-rect" x="${outputX}" y="${outputY}" width="${barWidth - 2}" height="${outputBarHeight}"
+        rx="3" fill="var(--chart-output-color)" opacity="0.88"
+        data-model="${escapeHtml(d.name)}"
+        data-type="Salida"
+        data-val-1m="$${d.outputPrice1M.toFixed(2)}"
+        data-val-raw="${formatters.formatPricePerToken(d.outputPriceRaw)}"
+      />
+
+      <!-- X-axis Model Name -->
+      <text class="axis-text" x="${groupX + usableWidth / 2}" y="${height - margin.bottom + 16}" 
+        text-anchor="end" transform="rotate(-35, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
+        ${escapeHtml(displayName)}
+      </text>
+    `;
+  });
+
+  container.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      ${gridLinesSvg}
+      <line class="axis-line" x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${width - margin.right}" y2="${margin.top + innerHeight}" />
+      ${barsSvg}
+    </svg>
+  `;
+
+  attachChartTooltips(container, 'price');
+}
+
+/**
+ * Chart 2: Token Consumption (Weekly vs Daily)
+ */
+function renderConsumptionChart(models) {
+  const container = document.getElementById('consumption-chart-container');
+  if (!container) return;
+
+  if (!models || models.length === 0) {
+    container.innerHTML = `<div class="empty-message" style="padding: 2rem;">Sin datos para los filtros seleccionados</div>`;
+    return;
+  }
+
+  const period = state.charts.consumptionPeriod;
+  const isWeek = period === 'week';
+
+  const width = 640;
+  const height = 260;
+  const margin = { top: 20, right: 20, bottom: 65, left: 52 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  const data = models.map(m => {
+    const inputTokens = isWeek ? m.inputTokensWeek : m.inputTokensDay;
+    const outputTokens = isWeek ? m.outputTokensWeek : m.outputTokensDay;
+    return {
+      name: m.name,
+      inputTokens,
+      outputTokens,
+      inputM: inputTokens / 1_000_000,
+      outputM: outputTokens / 1_000_000
+    };
+  });
+
+  const maxVal = Math.max(...data.map(d => Math.max(d.inputM, d.outputM)), 1);
+  const yMax = Math.ceil(maxVal * 1.15);
+
+  const yTicks = [0, Math.round(yMax * 0.33), Math.round(yMax * 0.66), yMax];
+  let gridLinesSvg = '';
+  yTicks.forEach(tickVal => {
+    const yPos = margin.top + innerHeight - (tickVal / yMax) * innerHeight;
+    gridLinesSvg += `
+      <line class="grid-line" x1="${margin.left}" y1="${yPos}" x2="${width - margin.right}" y2="${yPos}" />
+      <text class="axis-text" x="${margin.left - 8}" y="${yPos + 3}" text-anchor="end">${tickVal}M</text>
+    `;
+  });
+
+  const groupWidth = innerWidth / data.length;
+  const barPadding = 0.25;
+  const usableWidth = groupWidth * (1 - barPadding);
+  const barWidth = usableWidth / 2;
+
+  let barsSvg = '';
+  data.forEach((d, i) => {
+    const groupX = margin.left + i * groupWidth + (groupWidth * barPadding) / 2;
+
+    const inputBarHeight = Math.max((d.inputM / yMax) * innerHeight, 2);
+    const outputBarHeight = Math.max((d.outputM / yMax) * innerHeight, 2);
+
+    const inputY = margin.top + innerHeight - inputBarHeight;
+    const outputY = margin.top + innerHeight - outputBarHeight;
+
+    const inputX = groupX;
+    const outputX = groupX + barWidth + 2;
+
+    const displayName = d.name.length > 10 ? d.name.substring(0, 9) + '…' : d.name;
+
+    barsSvg += `
+      <!-- Input Tokens Bar -->
+      <rect class="bar-rect" x="${inputX}" y="${inputY}" width="${barWidth - 2}" height="${inputBarHeight}"
+        rx="3" fill="var(--chart-input-color)" opacity="0.88"
+        data-model="${escapeHtml(d.name)}"
+        data-type="Entrada"
+        data-tokens="${formatters.formatTokensCompact(d.inputTokens)}"
+        data-tokens-full="${formatters.formatTokensFull(d.inputTokens)}"
+        data-period="${isWeek ? 'Semanal' : 'Diario'}"
+      />
+
+      <!-- Output Tokens Bar -->
+      <rect class="bar-rect" x="${outputX}" y="${outputY}" width="${barWidth - 2}" height="${outputBarHeight}"
+        rx="3" fill="var(--chart-output-color)" opacity="0.88"
+        data-model="${escapeHtml(d.name)}"
+        data-type="Salida"
+        data-tokens="${formatters.formatTokensCompact(d.outputTokens)}"
+        data-tokens-full="${formatters.formatTokensFull(d.outputTokens)}"
+        data-period="${isWeek ? 'Semanal' : 'Diario'}"
+      />
+
+      <!-- X-axis Label -->
+      <text class="axis-text" x="${groupX + usableWidth / 2}" y="${height - margin.bottom + 16}" 
+        text-anchor="end" transform="rotate(-35, ${groupX + usableWidth / 2}, ${height - margin.bottom + 16})">
+        ${escapeHtml(displayName)}
+      </text>
+    `;
+  });
+
+  container.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      ${gridLinesSvg}
+      <line class="axis-line" x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${width - margin.right}" y2="${margin.top + innerHeight}" />
+      ${barsSvg}
+    </svg>
+  `;
+
+  attachChartTooltips(container, 'consumption');
+}
+
+/**
+ * Interactive Tooltips for SVG Bars
+ */
+function attachChartTooltips(container, chartType) {
+  const tooltip = document.getElementById('chart-tooltip');
+  if (!tooltip) return;
+
+  const bars = container.querySelectorAll('.bar-rect');
+  bars.forEach(bar => {
+    bar.addEventListener('mouseenter', (e) => {
+      const modelName = bar.getAttribute('data-model');
+      const type = bar.getAttribute('data-type');
+      const isInput = type === 'Entrada';
+      const dotColor = isInput ? 'var(--chart-input-color)' : 'var(--chart-output-color)';
+
+      if (chartType === 'price') {
+        const val1M = bar.getAttribute('data-val-1m');
+        const valRaw = bar.getAttribute('data-val-raw');
+        tooltip.innerHTML = `
+          <div class="tooltip-title">${modelName}</div>
+          <div class="tooltip-row">
+            <span class="tooltip-dot" style="background: ${dotColor};"></span>
+            <span>${type}:</span>
+            <span class="tooltip-value">${val1M} / 1M</span>
+          </div>
+          <div class="tooltip-sub">${valRaw} por token</div>
+        `;
+      } else {
+        const tokens = bar.getAttribute('data-tokens');
+        const tokensFull = bar.getAttribute('data-tokens-full');
+        const period = bar.getAttribute('data-period');
+        tooltip.innerHTML = `
+          <div class="tooltip-title">${modelName} (${period})</div>
+          <div class="tooltip-row">
+            <span class="tooltip-dot" style="background: ${dotColor};"></span>
+            <span>${type}:</span>
+            <span class="tooltip-value">${tokens} tokens</span>
+          </div>
+          <div class="tooltip-sub">${tokensFull} tokens exactos</div>
+        `;
+      }
+
+      tooltip.style.display = 'block';
+      positionTooltip(e);
+    });
+
+    bar.addEventListener('mousemove', (e) => {
+      positionTooltip(e);
+    });
+
+    bar.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
+}
+
+function positionTooltip(e) {
+  const tooltip = document.getElementById('chart-tooltip');
+  if (!tooltip) return;
+
+  const pad = 12;
+  let x = e.clientX;
+  let y = e.clientY - pad;
+
+  // Prevent overflowing window boundaries
+  const rect = tooltip.getBoundingClientRect();
+  if (x - rect.width / 2 < 10) x = rect.width / 2 + 10;
+  if (x + rect.width / 2 > window.innerWidth - 10) x = window.innerWidth - rect.width / 2 - 10;
+  if (y - rect.height < 10) y = e.clientY + pad + rect.height;
+
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top = `${y}px`;
 }
 
 // Badges helper functions
@@ -374,6 +674,34 @@ function setupEventListeners() {
   if (resetBtn) {
     resetBtn.addEventListener('click', resetFilters);
   }
+
+  // Period Toggle Buttons for Consumption Chart
+  const btnWeek = document.getElementById('btn-period-week');
+  const btnDay = document.getElementById('btn-period-day');
+  if (btnWeek && btnDay) {
+    btnWeek.addEventListener('click', () => {
+      if (state.charts.consumptionPeriod !== 'week') {
+        state.charts.consumptionPeriod = 'week';
+        btnWeek.classList.add('active');
+        btnDay.classList.remove('active');
+        renderConsumptionChart(state.filteredModels);
+      }
+    });
+
+    btnDay.addEventListener('click', () => {
+      if (state.charts.consumptionPeriod !== 'day') {
+        state.charts.consumptionPeriod = 'day';
+        btnDay.classList.add('active');
+        btnWeek.classList.remove('active');
+        renderConsumptionChart(state.filteredModels);
+      }
+    });
+  }
+
+  // Resize handler
+  window.addEventListener('resize', () => {
+    renderCharts(state.filteredModels);
+  });
 }
 
 // Render error notification
