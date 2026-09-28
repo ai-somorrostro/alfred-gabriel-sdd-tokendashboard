@@ -59,28 +59,107 @@
         </article>
       </section>
 
-      <!-- Table Section -->
+      <!-- Table & Filters Section -->
       <section class="table-section">
         <div class="section-header">
           <div class="section-title-wrapper">
-            <h2>Modelos de Lenguaje</h2>
-            <span class="count-badge" id="models-count">0 modelos</span>
+            <h2>Modelos y Métricas</h2>
+            <span class="count-badge" id="models-count">Cargando...</span>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar (Feature 1) -->
+        <div class="filters-toolbar" id="filters-toolbar">
+          <div class="filter-group search-group">
+            <label for="filter-search" class="filter-label">Buscar Modelo</label>
+            <div class="search-input-wrapper">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="filter-search" class="filter-input" placeholder="Ej: DeepSeek, Llama, Gemma..." autocomplete="off">
+              <button type="button" id="search-clear-btn" class="clear-btn" title="Limpiar búsqueda" style="display: none;">&times;</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-input-modality" class="filter-label">Modalidad Entrada</label>
+            <select id="filter-input-modality" class="filter-select">
+              <option value="ALL">Todas las entradas</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="filter-output-modality" class="filter-label">Modalidad Salida</label>
+            <select id="filter-output-modality" class="filter-select">
+              <option value="ALL">Todas las salidas</option>
+            </select>
+          </div>
+
+          <div class="filter-actions">
+            <button type="button" id="reset-filters-btn" class="btn btn-secondary" title="Restablecer todos los filtros">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              <span>Restablecer</span>
+            </button>
           </div>
         </div>
 
         <div class="table-card">
           <div class="table-responsive">
-            <table class="models-table">
+            <table class="models-table" id="models-table">
               <thead>
                 <tr>
-                  <th>Modelo</th>
-                  <th>Modalidad Entrada</th>
-                  <th>Modalidad Salida</th>
-                  <th class="text-right">Latencia (TTFT)</th>
-                  <th class="text-right">Precio Entrada</th>
-                  <th class="text-right">Precio Salida</th>
-                  <th class="text-right">Tokens / Día</th>
-                  <th class="text-right">Tokens / Semana</th>
+                  <th data-column="name" class="sortable" role="button" tabindex="0" title="Ordenar por Nombre">
+                    <div class="th-content">
+                      <span>Modelo</span>
+                      <span class="sort-icon" data-sort-for="name">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="inputModality" class="sortable" role="button" tabindex="0" title="Ordenar por Modalidad de Entrada">
+                    <div class="th-content">
+                      <span>Mod. Entrada</span>
+                      <span class="sort-icon" data-sort-for="inputModality">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="outputModality" class="sortable" role="button" tabindex="0" title="Ordenar por Modalidad de Salida">
+                    <div class="th-content">
+                      <span>Mod. Salida</span>
+                      <span class="sort-icon" data-sort-for="outputModality">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="ttft_ms" class="sortable text-right" role="button" tabindex="0" title="Ordenar por TTFT">
+                    <div class="th-content justify-end">
+                      <span>TTFT</span>
+                      <span class="sort-icon" data-sort-for="ttft_ms">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="inputPricePerToken" class="sortable text-right" role="button" tabindex="0" title="Ordenar por Precio de Entrada">
+                    <div class="th-content justify-end">
+                      <span>Precio Entrada</span>
+                      <span class="sort-icon" data-sort-for="inputPricePerToken">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="outputPricePerToken" class="sortable text-right" role="button" tabindex="0" title="Ordenar por Precio de Salida">
+                    <div class="th-content justify-end">
+                      <span>Precio Salida</span>
+                      <span class="sort-icon" data-sort-for="outputPricePerToken">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="inputTokensDay" class="sortable text-right" role="button" tabindex="0" title="Ordenar por Consumo Diario">
+                    <div class="th-content justify-end">
+                      <span>Tokens / Día</span>
+                      <span class="sort-icon" data-sort-for="inputTokensDay">⇅</span>
+                    </div>
+                  </th>
+                  <th data-column="inputTokensWeek" class="sortable text-right" role="button" tabindex="0" title="Ordenar por Consumo Semanal">
+                    <div class="th-content justify-end">
+                      <span>Tokens / Semana</span>
+                      <span class="sort-icon" data-sort-for="inputTokensWeek">⇅</span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody id="table-body">
