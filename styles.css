@@ -39,6 +39,7 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.6);
 }
 
 *, *::before, *::after {
@@ -461,6 +462,12 @@ body {
   color: var(--text-secondary);
 }
 
+.table-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Filters Toolbar */
 .filters-toolbar {
   background: var(--bg-surface);
@@ -663,12 +670,18 @@ body {
   vertical-align: middle;
 }
 
+/* Interactivity in rows for Feature 3 */
 .models-table tbody tr {
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
 }
 
 .models-table tbody tr:hover {
   background-color: var(--bg-surface-hover);
+}
+
+.models-table tbody tr:active {
+  background-color: rgba(99, 102, 241, 0.12);
 }
 
 .models-table tbody tr:last-child td {
@@ -791,7 +804,182 @@ body {
   gap: 0.75rem;
 }
 
-/* Footer */
+/* ==========================================================================
+   Feature 3: Detail Modal / Drawer Styles
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  transition: opacity 0.25s ease;
+}
+
+.detail-drawer {
+  width: min(580px, 100vw);
+  height: 100%;
+  background: var(--bg-surface);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: var(--shadow-drawer);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transform: translateX(100%);
+  animation: slideInDrawer 0.3s forwards cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInDrawer {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: var(--bg-surface-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.drawer-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.drawer-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.drawer-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.close-drawer-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 1.4rem;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.close-drawer-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.drawer-content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawer-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+/* Extended Detail Metric Cards */
+.drawer-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+
+.drawer-metric-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawer-metric-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.drawer-metric-val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.drawer-metric-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+/* Individual Model Charts Container */
+.drawer-chart-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drawer-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.drawer-chart-svg-wrap {
+  width: 100%;
+  height: 180px;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
 .app-footer {
   border-top: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -807,7 +995,9 @@ body {
   color: var(--accent-cyan);
 }
 
-/* Responsiveness */
+/* ==========================================================================
+   Responsive Adaptations
+   ========================================================================== */
 @media (max-width: 1024px) {
   .charts-grid {
     grid-template-columns: 1fr;
@@ -835,6 +1025,9 @@ body {
     padding: 1rem;
   }
   .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .drawer-metric-grid {
     grid-template-columns: 1fr;
   }
 }

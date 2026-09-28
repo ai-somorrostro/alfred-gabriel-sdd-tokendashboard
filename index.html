@@ -123,6 +123,7 @@
             <h2>Modelos y Métricas</h2>
             <span class="count-badge" id="models-count">Cargando...</span>
           </div>
+          <span class="table-hint">Haz clic en cualquier fila para ver métricas y gráficas extendidas</span>
         </div>
 
         <!-- Filter Toolbar (Feature 1) -->
@@ -232,6 +233,22 @@
 
     <!-- Floating Interactive Tooltip for SVG Charts -->
     <div id="chart-tooltip" class="chart-tooltip" style="display: none;"></div>
+
+    <!-- Feature 3: Detail View Drawer / Modal -->
+    <div id="detail-modal-overlay" class="modal-overlay" style="display: none;">
+      <div id="detail-drawer" class="detail-drawer" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="drawer-header">
+          <div class="drawer-title-group">
+            <h2 id="modal-title" class="drawer-title">-</h2>
+            <div id="modal-badges" class="drawer-badges"></div>
+          </div>
+          <button type="button" id="close-drawer-btn" class="close-drawer-btn" aria-label="Cerrar panel">&times;</button>
+        </div>
+        <div id="drawer-content" class="drawer-content">
+          <!-- Dynamic Content rendered by app.js -->
+        </div>
+      </div>
+    </div>
 
     <!-- Footer -->
     <footer class="app-footer">
