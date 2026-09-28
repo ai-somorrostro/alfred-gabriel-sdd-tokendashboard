@@ -1,0 +1,105 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokenDashboard - Comparador de Modelos de IA</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-container">
+        <div class="header-brand">
+          <div class="logo-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <div>
+            <div class="header-title-row">
+              <h1>TokenDashboard</h1>
+              <span class="badge badge-source">mock-data.json</span>
+            </div>
+            <p class="subtitle">Evaluación comparativa de modelos de lenguaje open source</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- KPI Cards -->
+      <section class="kpi-grid" aria-label="Métricas globales">
+        <article class="kpi-card">
+          <span class="kpi-label">Modelos Evaluados</span>
+          <div class="kpi-value" id="kpi-total-models">-</div>
+          <span class="kpi-caption">Modelos disponibles</span>
+        </article>
+
+        <article class="kpi-card">
+          <span class="kpi-label">Latencia Media (TTFT)</span>
+          <div class="kpi-value" id="kpi-avg-ttft">-</div>
+          <span class="kpi-caption">Tiempo a primer token</span>
+        </article>
+
+        <article class="kpi-card">
+          <span class="kpi-label">Precio Medio (In / Out)</span>
+          <div class="kpi-value" id="kpi-avg-price">-</div>
+          <span class="kpi-caption">Por 1M de tokens</span>
+        </article>
+
+        <article class="kpi-card">
+          <span class="kpi-label">Consumo Semanal</span>
+          <div class="kpi-value" id="kpi-total-tokens">-</div>
+          <span class="kpi-caption">Tokens procesados (In + Out)</span>
+        </article>
+      </section>
+
+      <!-- Table Section -->
+      <section class="table-section">
+        <div class="section-header">
+          <div class="section-title-wrapper">
+            <h2>Modelos de Lenguaje</h2>
+            <span class="count-badge" id="models-count">0 modelos</span>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="models-table">
+              <thead>
+                <tr>
+                  <th>Modelo</th>
+                  <th>Modalidad Entrada</th>
+                  <th>Modalidad Salida</th>
+                  <th class="text-right">Latencia (TTFT)</th>
+                  <th class="text-right">Precio Entrada</th>
+                  <th class="text-right">Precio Salida</th>
+                  <th class="text-right">Tokens / Día</th>
+                  <th class="text-right">Tokens / Semana</th>
+                </tr>
+              </thead>
+              <tbody id="table-body">
+                <tr>
+                  <td colspan="8" class="empty-message">Cargando modelos...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>TokenDashboard &bull; Spec-Driven Development &bull; Datos extraídos de <code>mock-data.json</code></p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
