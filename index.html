@@ -37,7 +37,7 @@
         <article class="kpi-card">
           <span class="kpi-label">Modelos Evaluados</span>
           <div class="kpi-value" id="kpi-total-models">-</div>
-          <span class="kpi-caption">Modelos disponibles</span>
+          <span class="kpi-caption">Modelos en la vista</span>
         </article>
 
         <article class="kpi-card">
@@ -57,6 +57,63 @@
           <div class="kpi-value" id="kpi-total-tokens">-</div>
           <span class="kpi-caption">Tokens procesados (In + Out)</span>
         </article>
+      </section>
+
+      <!-- Visualizations Section (Feature 2: Native SVG Charts) -->
+      <section class="visualizations-section" id="visualizations-section" aria-label="Gráficas comparativas">
+        <div class="charts-grid">
+          <!-- Price Comparison Chart -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-title-box">
+                <h3>Precios por Token (Entrada vs Salida)</h3>
+                <span class="chart-subtitle">Comparativa en $/1M de tokens (SVG Nativo)</span>
+              </div>
+              <div class="chart-legend">
+                <div class="legend-item">
+                  <span class="legend-color legend-input"></span>
+                  <span class="legend-text">Entrada</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color legend-output"></span>
+                  <span class="legend-text">Salida</span>
+                </div>
+              </div>
+            </div>
+            <div class="chart-canvas-wrapper" id="price-chart-container">
+              <!-- Generated SVG via app.js -->
+            </div>
+          </div>
+
+          <!-- Token Consumption Chart -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-title-box">
+                <h3>Consumo de Tokens del Equipo</h3>
+                <span class="chart-subtitle">Volumen procesado (Entrada + Salida)</span>
+              </div>
+              <div class="chart-controls-box">
+                <div class="chart-toggle-group">
+                  <button type="button" class="btn-toggle active" id="btn-period-week" data-period="week">Semanal</button>
+                  <button type="button" class="btn-toggle" id="btn-period-day" data-period="day">Diario</button>
+                </div>
+                <div class="chart-legend">
+                  <div class="legend-item">
+                    <span class="legend-color legend-input"></span>
+                    <span class="legend-text">In</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color legend-output"></span>
+                    <span class="legend-text">Out</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="chart-canvas-wrapper" id="consumption-chart-container">
+              <!-- Generated SVG via app.js -->
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Table & Filters Section -->
@@ -172,6 +229,9 @@
         </div>
       </section>
     </main>
+
+    <!-- Floating Interactive Tooltip for SVG Charts -->
+    <div id="chart-tooltip" class="chart-tooltip" style="display: none;"></div>
 
     <!-- Footer -->
     <footer class="app-footer">
